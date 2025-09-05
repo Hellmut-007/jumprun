@@ -35,18 +35,32 @@ button {
     background: #444;
     color: #aaa;
 }
+#highscore[readonly] {
+    background: #444;
+    color: #aaa;
+}
 </style>
 </head>
 <body>
-<h1>Münzen für das Spiel einstellen</h1>
+    <h1>General</h1>
+<h2>Sprunglänge einstellen (default: 1200)</h2>
+<input id="jumpDuration" type="number" min="0" value="0">
+<h1>   </h1>
+<h1>Hacks</h1>
+<button id="unlockCoinsBtn" style="margin-left:10px;">entsperren</button>
+
+<h2>Münzen für das Spiel einstellen</h2>
 <div style="display:flex;align-items:center;">
     <input id="coinsInput" type="number" min="0" value="0" readonly>
-    <button id="unlockCoinsBtn" style="margin-left:10px;">Münzen entsperren</button>
 </div>
-<h1>Alle Skins löschen</h1>
+<h2>Highscore einstellen</h2>
+<div style="display:flex;align-items:center;">
+    <input id="highscore" type="number" min="0" value="0" readonly>
+</div>
+</div>
+<h2>Alle Skins löschen</h2>
 <button onclick="deleteSkins()">löschen</button>
-<h1>Sprunglänge einstellen (default: 1200)</h1>
-<input id="jumpDuration" type="number" min="0" value="0">
+<h1>    </h1>
 <div>
     <button onclick="apply()">Apply</button>
     <button onclick="ToMenu()">Zurück zum Menü</button>
@@ -61,13 +75,14 @@ async function sha256(str) {
 function apply() {
     const coins = parseInt(document.getElementById("coinsInput").value) || 0;
     const jumpDuration = parseInt(document.getElementById("jumpDuration").value) || 1200;
-
+    const highscore = parseInt(document.getElementById("highscore").value) || 0;
     if (jumpDuration > 2500) {
         alert("Sprunglänge max 2500!");
         return; // Stop execution, do not save
     }
     localStorage.setItem("coins", coins);
     localStorage.setItem("jumpDuration", jumpDuration);
+    localStorage.setItem("highscore", highscore);
 }
 
 function ToMenu() {
@@ -76,6 +91,7 @@ function ToMenu() {
 
 // Password-protect coins input
 const coinsInput = document.getElementById("coinsInput");
+const highscoreInput = document.getElementById("highscore");
 const unlockBtn = document.getElementById("unlockCoinsBtn");
 
 const PASSWORD_HASH = "1d604998daff644540f1390636ee61e88f8d1b2a83e04521e494d48ca272a6bc";
@@ -88,7 +104,10 @@ unlockBtn.addEventListener("click", async () => {
         coinsInput.readOnly = false;
         coinsInput.style.background = "#222";
         coinsInput.style.color = "#fff";
-        alert("Coins-Eingabe entsperrt!");
+        highscoreInput.readOnly = false;
+        highscoreInput.style.background = "#222";   
+        highscoreInput.style.color = "#fff";
+        alert("Enstsperrt!");
     } else {
         alert("Falsches Passwort!");
     }
@@ -106,9 +125,11 @@ function deleteSkins() {
 document.addEventListener("DOMContentLoaded", () => {
     const savedCoins = parseInt(localStorage.getItem("coins")) || 0;
     const savedJumpDuration = parseInt(localStorage.getItem("jumpDuration")) || 1200;
+    const savedhighscore = parseInt(localStorage.getItem("highscore")) || 0;
     
     document.getElementById("coinsInput").value = savedCoins;
     document.getElementById("jumpDuration").value = savedJumpDuration;
+    document.getElementById("highscore").value = savedhighscore;
 });
 </script>
 </body>
