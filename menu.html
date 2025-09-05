@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Hauptmenü</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(160deg, #222, #444);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+
+    .stats {
+      margin-bottom: 30px;
+      font-size: 20px;
+      text-align: center;      
+      width: 100%;             
+      display: flex;           
+      flex-direction: column;  
+      align-items: center;     
+      justify-content: center; 
+    }
+    
+    .highscore-label {
+      color: #ff4444; 
+      font-weight: bold;
+    }
+
+    .coins-label {
+      color: #ffe066; 
+      font-weight: bold;
+    }
+
+    .menu {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .menu button {
+      display: block;
+      margin: 12px;
+      padding: 12px 20px;
+      font-size: 20px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #555;
+      color: #fff;
+      transition: 0.2s;
+    }
+
+    .menu button:hover {
+      background: #777;
+    }
+
+    .menu .quit-btn {
+      margin-top: 32px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>GameName</h1>
+  <h1>Hauptmenü</h1>
+  <div class="stats">
+    <span class="highscore-label">Highscore <span id="highscore">0</span></span><br>
+    <span class="coins-label">Münzen <span id="coins">0</span></span>
+  </div>
+   <div class="menu">
+    <a href="shop.html"><button>Shop</button></a>
+    <a href="game.html"><button>Spiel starten</button></a>
+    <a href="dev.html"><button>devtools</button></a>
+    <button class="quit-btn" onclick="quitGame()">Beenden</button>
+  </div>
+
+  <script>
+    // Highscore und Münzen aus Speicher laden
+    document.getElementById("highscore").textContent =
+      localStorage.getItem("highscore") || 0;
+    document.getElementById("coins").textContent =
+      localStorage.getItem("coins") || 0;
+
+    //default werte setzen falls nicht vorhanden
+
+    function quitGame() {
+      if (window.close) {
+        window.close();
+      } else {
+        alert("Beenden nicht möglich. Schließe das Fenster/Tab bitte manuell.");
+      }
+    }
+  </script>
+</body>
+
+</html>

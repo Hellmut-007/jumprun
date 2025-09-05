@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="utf-8">
+  <title>Mini Skin-Shop</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      text-align: center;
+    }
+
+    .coins-label {
+      color: #ffe066; 
+      font-weight: bold;
+    }
+
+    .balance {
+      margin: 20px;
+      font-size: 20px;
+    }
+
+    .shop {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .card {
+      background: #222;
+      border-radius: 10px;
+      padding: 12px;
+      width: 160px;
+    }
+
+    button {
+      margin-top: 8px;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .owned {
+      margin-top: 20px;
+    }
+
+    .nav {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <span class="coins-label">Münzen <span id="coins">0</span></span>
+  <div class="shop" id="shop"></div>
+  <div class="owned"><b>Deine Skins:</b> <span id="owned">keine</span></div>
+
+  <!-- Zurück zum Hauptmenü -->
+  <div class="nav">
+    <a href="menu.html"><button>Zum Hauptmenü</button></a>
+  </div>
+
+  <script>
+    // --- Coins & Skins aus localStorage laden ---
+    let coins = parseInt(localStorage.getItem("coins"));
+    if (isNaN(coins)) {
+      // Beim allerersten Mal: Startwert = 0
+      coins = 0;
+      localStorage.setItem("coins", coins);
+    }
+
+    let owned = JSON.parse(localStorage.getItem("ownedSkins")) || [];
+    let activeSkin = localStorage.getItem("activeSkin") || null;
+
+    const skins = [
+      { id: "flame", name: "🔥 Flamme", price: 150 },
+      { id: "ice", name: "❄️ Eis", price: 200 },
+      { id: "galaxy", name: "🌌 Galaxie", price: 300 },
+      { id: "gold", name: "👑 Gold", price: 450 }
+    ];
+
+    // --- Shop neu rendern ---
+    function render() {
+      document.getElementById("coins").textContent = coins;
+      document.getElementById("owned").textContent =
+        owned.length ? owned.map(id => skins.find(s => s.id === id).name).join(", ") : "keine";
+
+      let shop = document.getElementById("shop");
+      shop.innerHTML = "";
+
+      skins.forEach(s => {
+        let c = document.createElement("div");
+        c.className = "card";
+        c.innerHTML = `<div>${s.name}</div><div>💰 ${s.price}</div>`;
+
+        let b = document.createElement("button");
+
+        if (owned.includes(s.id)) {
+          // Skin gehört Spieler → Auswahl möglich
+          b.textContent = activeSkin === s.id ? "Ausgewählt" : "Auswählen";
+          b.onclick = () => {
+            activeSkin = s.id;
+            localStorage.setItem("activeSkin", activeSkin);
+            render();
+          };
+        } else {
+          // Skin kann gekauft werden
+          b.textContent = "Kaufen";
+          b.onclick = () => {
+            if (coins >= s.price) {
+              coins -= s.price;
+              owned.push(s.id);
+              localStorage.setItem("coins", coins);
+              localStorage.setItem("ownedSkins", JSON.stringify(owned));
+              render();
+            } else {
+              alert("Nicht genug Münzen!");
+            }
+          };
+        }
+
+        c.appendChild(b);
+        shop.appendChild(c);
+      });
+    }
+
+    render();
+  </script>
+</body>
+
+</html>

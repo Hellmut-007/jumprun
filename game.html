@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Hürdenlauf-Spiel mit Münzen</title>
+<style>
+body {
+    margin: 0;
+    background-color: #111;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+}
+#gameArea {
+    margin: auto;
+    height: 100vh;
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-end;
+    position: relative;
+    border: 10px solid #000;
+    border-radius: 20px;
+    box-shadow: inset 0 0 80px rgba(0,0,0,0.8);
+    overflow: hidden;
+}
+#ground {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 40px;
+    background: #444;
+}
+#player {
+    position: absolute;
+    bottom: 40px;
+    left: 50px;
+    width: 40px;
+    height: 80px;
+}
+.hurdle {
+    position: absolute;
+    bottom: 40px;
+    width: 40px;
+    height: 40px;
+    background: url('hurdle.png') no-repeat center/cover;
+}
+.coin {
+    position: absolute;
+    bottom: 40px; 
+    width: 40px;
+    height: 40px;
+    background: url('coin.png') no-repeat center/cover;
+}
+#gameOver {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 28px;
+    color: red;
+    display: none;
+    text-align: center;
+}
+#gameOver button {
+    margin: 10px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 18px;
+    cursor: pointer;
+}
+#scoreBoard {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 22px;
+    color: white;
+}
+#coinsBoard {
+    position: absolute;
+    top: 40px;
+    right: 20px;
+    font-size: 20px;
+    color: gold;
+}
+</style>
+</head>
+<body>
+<div id="gameArea">
+    <div id="ground"></div>
+    <img id="player" src="run1.png" width="40" height="40">
+    <div id="scoreBoard">Score: 0</div>
+    <div id="coinsBoard">Coins: 0</div>
+    <div id="gameOver">
+        <div id="gameOverText">Game Over</div>
+        <div id="rewardText"></div>
+        <div id="finalScoreText"></div>
+        <div id="highScoreText"></div>
+        <button onclick="restartGame()">Neustart</button>
+        <a href="menu.html"><button>Hauptmenü</button></a>
+    </div>
+</div>
+
+<div id="healthBarContainer" style="
+    position: absolute;
+    top: 10px;
+    left: 20px;
+    width: 150px;
+    height: 20px;
+    border: 2px solid white;
+    border-radius: 5px;
+    background: #333;">
+    <div id="healthBar" style="
+        width: 100%;
+        height: 100%;
+        background: red;
+        border-radius: 5px;"></div>
+</div>
+
+<script>
+
+const gameArea = document.getElementById("gameArea");
+const player = document.getElementById("player");
+const gameOverScreen = document.getElementById("gameOver");
+const rewardText = document.getElementById("rewardText");
+const finalScoreText = document.getElementById("finalScoreText");
+const highScoreText = document.getElementById("highScoreText");
+const scoreBoard = document.getElementById("scoreBoard");
+const coinsBoard = document.getElementById("coinsBoard");
+const ground = document.getElementById("ground");
+
+const groundHeight = 40;
+let isJumping=false;
+let jumpHeight=150
+
+let jumpDuration=localStorage.getItem("jumpDuration") ? parseInt(localStorage.getItem("jumpDuration")) : 600;
+
+let obstacles=[];
+const baseSpeedDefault=3;
+let baseSpeed=baseSpeedDefault;
+let minGap=300;
+let maxGap=2000;
+
+let score=0;
+let coins=0;
+let gameRunning=true;
+let lastTime=performance.now();
+
+// Sprite Animation
+const runSprites = ["run1.png","run2.png","run3.png"];
+const jumpSprite = "jump.png";
+const deathSprite = "death.png";
+let currentRunIndex=0;
+let runDirection=1;
+let lastFrameTime=performance.now();
+
+//Health
+const maxHealth = 3;
+let currentHealth = maxHealth;
+const healthBar = document.getElementById("healthBar");
+
+let activeSkin = localStorage.getItem("activeSkin") || null;
+
+function applySkinTheme(skinId){
+    switch(skinId){
+        case "flame":
+            gameArea.style.background = "url('bg_flame.png') no-repeat center/cover";
+            ground.style.background = "#880000";
+            break;
+        case "ice":
+            gameArea.style.background = "url('bg_ice.png') no-repeat center/cover";
+            ground.style.background = "#005f7f";
+            break;
+        case "galaxy":
+            gameArea.style.background = "url('bg_galaxy.png') no-repeat center/cover";
+            ground.style.background = "#220044";
+            break;
+        case "gold":
+            gameArea.style.background = "url('bg_gold.png') no-repeat center/cover";
+            ground.style.background = "#aa8800";
+            break;
+        default:
+            gameArea.style.background="linear-gradient(160deg, #111, #333)";
+            ground.style.background="#444";
+    }
+}
+applySkinTheme(activeSkin);
+
+updateHealthBar();
+function updatePlayerSprite(time){
+    if(!gameRunning){
+        player.src=deathSprite;
+    } else if(isJumping){
+        player.src=jumpSprite;
+    } else {
+        if(time - lastFrameTime > 150){
+            currentRunIndex += runDirection;
+            if(currentRunIndex >= runSprites.length-1) runDirection=-1;
+            if(currentRunIndex <=0) runDirection=1;
+            player.src=runSprites[currentRunIndex];
+            lastFrameTime=time;
+        }
+    }
+    requestAnimationFrame(updatePlayerSprite);
+}
+updatePlayerSprite(performance.now());
+
+player.style.bottom = groundHeight + "px";
+
+function handleJump(e){
+    if(e.code === "Space") jump();
+}
+document.addEventListener("keydown", handleJump);
+
+// Allow click/tap to jump
+gameArea.addEventListener("mousedown", function() {
+    jump();
+});
+gameArea.addEventListener("touchstart", function(e) {
+    e.preventDefault();
+    jump();
+}, { passive: false });
+
+
+function updateHealthBar() {
+    const percent = (currentHealth / maxHealth) * 100;
+    healthBar.style.width = percent + "%";
+}
+
+function jump(){
+    if(isJumping) return;
+    isJumping=true;
+    const startTime = performance.now();
+    function animate(time){
+        const elapsed = Math.min(time-startTime,jumpDuration);
+        const t = elapsed/jumpDuration;
+        const y = jumpHeight*4*t*(1-t)+groundHeight;
+        player.style.bottom = y+"px";
+        if(elapsed<jumpDuration) requestAnimationFrame(animate);
+        else {
+            player.style.bottom=groundHeight+"px";
+            isJumping=false;
+        }
+    }
+    requestAnimationFrame(animate);
+}
+
+// Hürde oder Münze erstellen
+function createObstacleOrCoin() {
+    const isCoin = Math.random() < 0.2; // 20% Chance für Münze
+    if(isCoin){
+        const coin = document.createElement("div");
+        coin.classList.add("coin");
+        coin.style.left = gameArea.clientWidth + "px";
+        gameArea.appendChild(coin);
+        obstacles.push(coin);
+    } else {
+        const h = document.createElement("div");
+        h.classList.add("hurdle");
+        h.style.left = gameArea.clientWidth + "px";
+        gameArea.appendChild(h);
+        obstacles.push(h);
+    }
+}
+
+// Game Loop
+function gameLoop(time){
+    if(!gameRunning) return;
+    let delta=(time-lastTime)/1000;
+    lastTime=time;
+
+    score+=delta*5;
+    scoreBoard.textContent="Score: "+Math.floor(score);
+
+    const speed=baseSpeed+score*0.02;
+
+    obstacles.forEach((obj,index)=>{
+        let left=parseFloat(obj.style.left);
+        left-=speed;
+        obj.style.left=left+"px";
+
+        if(left<-50){
+            if(gameArea.contains(obj)) gameArea.removeChild(obj);
+            obstacles.splice(index,1);
+        }
+
+        const playerLeft=player.offsetLeft;
+        const playerRight=playerLeft+player.offsetWidth;
+        const playerBottom=parseFloat(player.style.bottom)||groundHeight;
+        const playerTop=playerBottom+player.offsetHeight;
+
+        const objLeft = left;
+        const objRight = left + obj.offsetWidth;
+        const objBottom = obj.classList.contains("hurdle") ? groundHeight : parseFloat(obj.style.bottom)||100;
+        const objTop = objBottom + obj.offsetHeight;
+
+        if(playerRight>objLeft && playerLeft<objRight &&
+           playerBottom<objTop && playerTop>objBottom){
+
+            if(obj.classList.contains("hurdle")){
+                currentHealth--;
+                updateHealthBar();
+                if(currentHealth <=0) gameOver();
+            } else if(obj.classList.contains("coin")){
+                coins += 5; // Münze gibt 5 Coins
+                coinsBoard.textContent = "Coins: " + coins;
+            }
+
+            if(gameArea.contains(obj)) gameArea.removeChild(obj);
+            obstacles.splice(index,1);
+        }
+    });
+
+    const lastObstacle = obstacles[obstacles.length-1];
+    const gap = Math.random()*(maxGap-minGap)+minGap;
+    if(!lastObstacle || parseFloat(lastObstacle.style.left)<gameArea.clientWidth-gap){
+        createObstacleOrCoin();
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+// Game Over
+function gameOver(){
+    document.removeEventListener("keydown", handleJump);
+    gameRunning=false;
+    gameOverScreen.style.display="block";
+
+    let highscore=parseInt(localStorage.getItem("highscore"))||0;
+    if(score>highscore) localStorage.setItem("highscore", Math.floor(score));
+
+    // Coins aus Score: je 10 Punkte = 1 Münze
+    const coinsFromScore = Math.floor(score/10);
+    coins += coinsFromScore;
+
+    player.src = deathSprite;
+    
+    // Coins in localStorage speichern
+    let totalCoins = parseInt(localStorage.getItem("coins"))||0;
+    totalCoins += coins;
+    localStorage.setItem("coins", totalCoins);
+
+    rewardText.textContent = `+${coins} Münzen gesammelt (insgesamt: ${totalCoins})`;
+    finalScoreText.textContent = `Score: ${Math.floor(score)}`;
+    highScoreText.textContent = `Highscore: ${Math.floor(Math.max(score, highscore))}`;
+
+    obstacles.forEach(h=>{if(gameArea.contains(h)) gameArea.removeChild(h);});
+    obstacles=[];
+}
+
+// Restart
+function restartGame(){
+    gameOverScreen.style.display="none";
+    player.style.bottom = groundHeight + "px";
+    isJumping=false;
+    obstacles.forEach(h=>{if(gameArea.contains(h)) gameArea.removeChild(h);});
+    obstacles=[];
+    score=0;
+    coins=0;
+    coinsBoard.textContent = "Coins: 0";
+    baseSpeed=baseSpeedDefault;
+    lastTime=performance.now();
+    gameRunning=true;
+
+    currentHealth = maxHealth;
+    updateHealthBar();
+
+    document.addEventListener("keydown", handleJump);
+    gameLoop(performance.now());
+}
+
+// Start
+gameLoop(performance.now());
+</script>
+</body>
+</html>
