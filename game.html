@@ -32,16 +32,23 @@ body {
 #player {
     position: absolute;
     bottom: 40px;
-    left: 50px;
-    width: 40px;
+    left: 150px;
+    width: 80px;
     height: 80px;
 }
 .hurdle {
     position: absolute;
     bottom: 40px;
-    width: 40px;
-    height: 40px;
+    width: 158px;
+    height: 70px;
     background: url('hurdle.png') no-repeat center/cover;
+}
+.hurdle-win {
+    position: absolute;
+    bottom: 40px;
+    width: 158px;
+    height: 70px;
+    background: url('hurdle_win.png') no-repeat center/cover;
 }
 .coin {
     position: absolute;
@@ -56,7 +63,7 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
     font-size: 28px;
-    color: red;
+    color: black;
     display: none;
     text-align: center;
 }
@@ -130,27 +137,31 @@ const ground = document.getElementById("ground");
 
 const groundHeight = 40;
 let isJumping=false;
-let jumpHeight=150
+let jumpHeight=130
 
-let jumpDuration=localStorage.getItem("jumpDuration") ? parseInt(localStorage.getItem("jumpDuration")) : 600;
+let jumpDuration=localStorage.getItem("jumpDuration") ? parseInt(localStorage.getItem("jumpDuration")) : 1200;
 
 let obstacles=[];
 const baseSpeedDefault=3;
 let baseSpeed=baseSpeedDefault;
-let minGap=300;
-let maxGap=2000;
+let minGap=600;
+let maxGap=4000;
 
 let score=0;
 let coins=0;
 let gameRunning=true;
 let lastTime=performance.now();
 
+let lastCollidedHurdle = null;
+
 // Sprite Animation
-const runSprites = ["run1.png","run2.png","run3.png"];
-const jumpSprite = "jump.png";
-const deathSprite = "death.png";
+const runSprites = [
+    "run1.png","run2.png","run3.png","run4.png",
+    "run5.png","run6.png","run7.png","run8.png"
+];
+const jumpSprite = "run8.png";
+const deathSprites = ["death1.png", "death2.png", "death3.png", "death4.png"];
 let currentRunIndex=0;
-let runDirection=1;
 let lastFrameTime=performance.now();
 
 //Health
@@ -186,23 +197,43 @@ function applySkinTheme(skinId){
 applySkinTheme(activeSkin);
 
 updateHealthBar();
+
 function updatePlayerSprite(time){
+    if(!gameRunning && isDying){
+        // Death animation handled separately
+        return;
+    }
     if(!gameRunning){
-        player.src=deathSprite;
+        player.src = deathSprites[deathSprites.length-1]; // Stay on last death frame if not animating
     } else if(isJumping){
-        player.src=jumpSprite;
+        player.src = jumpSprite;
     } else {
-        if(time - lastFrameTime > 150){
-            currentRunIndex += runDirection;
-            if(currentRunIndex >= runSprites.length-1) runDirection=-1;
-            if(currentRunIndex <=0) runDirection=1;
-            player.src=runSprites[currentRunIndex];
-            lastFrameTime=time;
+        if(time - lastFrameTime > 100){ // adjust speed if needed
+            currentRunIndex = (currentRunIndex + 1) % runSprites.length;
+            player.src = runSprites[currentRunIndex];
+            lastFrameTime = time;
         }
     }
     requestAnimationFrame(updatePlayerSprite);
 }
 updatePlayerSprite(performance.now());
+
+function playDeathAnimation(callback) {
+    isDying = true;
+    let frame = 0;
+    function nextFrame() {
+        player.src = deathSprites[frame];
+        frame++;
+        if (frame < deathSprites.length) {
+            setTimeout(nextFrame, 200);
+        } else {
+            // Stay on last frame
+            isDying = false;
+            if (callback) callback();
+        }
+    }
+    nextFrame();
+}
 
 player.style.bottom = groundHeight + "px";
 
@@ -225,14 +256,20 @@ function updateHealthBar() {
 function jump(){
     if(!gameRunning) return;
     if(isJumping) return;
+
+    // Dynamically adjust jump duration based on speed
+    const speed = baseSpeed + score * 0.02;
+    // The higher the speed, the shorter the jump duration (min 350ms)
+    let dynamicJumpDuration = Math.max(350, jumpDuration * (baseSpeedDefault / speed));
+
     isJumping=true;
     const startTime = performance.now();
     function animate(time){
-        const elapsed = Math.min(time-startTime,jumpDuration);
-        const t = elapsed/jumpDuration;
+        const elapsed = Math.min(time-startTime, dynamicJumpDuration);
+        const t = elapsed/dynamicJumpDuration;
         const y = jumpHeight*4*t*(1-t)+groundHeight;
         player.style.bottom = y+"px";
-        if(elapsed<jumpDuration) requestAnimationFrame(animate);
+        if(elapsed<dynamicJumpDuration) requestAnimationFrame(animate);
         else {
             player.style.bottom=groundHeight+"px";
             isJumping=false;
@@ -259,6 +296,14 @@ function createObstacleOrCoin() {
     }
 }
 
+//win hurdle
+function spawnWinHurdle() {
+    const winHurdle = document.createElement("div");
+    winHurdle.classList.add("hurdle-win");
+    winHurdle.style.left = (180) + "px";
+    gameArea.appendChild(winHurdle);
+}
+
 // Game Loop
 function gameLoop(time){
     if(!gameRunning) return;
@@ -271,41 +316,49 @@ function gameLoop(time){
     const speed=baseSpeed+score*0.02;
 
     obstacles.forEach((obj,index)=>{
-        let left=parseFloat(obj.style.left);
-        left-=speed;
-        obj.style.left=left+"px";
+    let left=parseFloat(obj.style.left);
+    left-=speed;
+    obj.style.left=left+"px";
 
-        if(left<-50){
-            if(gameArea.contains(obj)) gameArea.removeChild(obj);
-            obstacles.splice(index,1);
+    if(left<-50){
+        if(gameArea.contains(obj)) gameArea.removeChild(obj);
+        obstacles.splice(index,1);
+    }
+
+    // --- HITBOX SHRINKING ---
+    // Shrink hitboxes by 20% on each side (adjust as needed)
+    const playerMarginX = player.offsetWidth * 0.2;
+    const objMarginX = obj.offsetWidth * 0.2;
+
+    const playerLeft = player.offsetLeft + playerMarginX;
+    const playerRight = player.offsetLeft + player.offsetWidth - playerMarginX;
+    const playerBottom = (parseFloat(player.style.bottom)||groundHeight);
+    const playerTop = (parseFloat(player.style.bottom)||groundHeight) + player.offsetHeight;
+
+    const objLeft = left + objMarginX;
+    const objRight = left + obj.offsetWidth - objMarginX;
+    const objBottom = (obj.classList.contains("hurdle") ? groundHeight : parseFloat(obj.style.bottom)||100);
+    const objTop = objBottom + obj.offsetHeight;
+
+    if(playerRight>objLeft && playerLeft<objRight &&
+       playerBottom<objTop && playerTop>objBottom){
+
+    if(obj.classList.contains("hurdle")){
+        currentHealth--;
+        updateHealthBar();
+    if(currentHealth <=0) {
+        lastCollidedHurdle = obj;
+        gameOver();
+    }
+        } else if(obj.classList.contains("coin")){
+            coins += 5; // Münze gibt 5 Coins
+            coinsBoard.textContent = "Coins: " + coins;
         }
 
-        const playerLeft=player.offsetLeft;
-        const playerRight=playerLeft+player.offsetWidth;
-        const playerBottom=parseFloat(player.style.bottom)||groundHeight;
-        const playerTop=playerBottom+player.offsetHeight;
-
-        const objLeft = left;
-        const objRight = left + obj.offsetWidth;
-        const objBottom = obj.classList.contains("hurdle") ? groundHeight : parseFloat(obj.style.bottom)||100;
-        const objTop = objBottom + obj.offsetHeight;
-
-        if(playerRight>objLeft && playerLeft<objRight &&
-           playerBottom<objTop && playerTop>objBottom){
-
-            if(obj.classList.contains("hurdle")){
-                currentHealth--;
-                updateHealthBar();
-                if(currentHealth <=0) gameOver();
-            } else if(obj.classList.contains("coin")){
-                coins += 5; // Münze gibt 5 Coins
-                coinsBoard.textContent = "Coins: " + coins;
-            }
-
-            if(gameArea.contains(obj)) gameArea.removeChild(obj);
-            obstacles.splice(index,1);
-        }
-    });
+        if(gameArea.contains(obj)) gameArea.removeChild(obj);
+        obstacles.splice(index,1);
+    }
+});
 
     const lastObstacle = obstacles[obstacles.length-1];
     const gap = Math.random()*(maxGap-minGap)+minGap;
@@ -318,11 +371,15 @@ function gameLoop(time){
 
 // Game Over
 function gameOver(){
+    spawnWinHurdle();
     document.removeEventListener("keydown", handleJump);
     gameArea.removeEventListener("mousedown", handleMouseJump);
     gameArea.removeEventListener("touchstart", handleTouchJump, { passive: false });
     gameRunning=false;
     gameOverScreen.style.display="block";
+
+    // Set background to red on death
+    gameArea.style.background = "red";
 
     let highscore=parseInt(localStorage.getItem("highscore"))||0;
     if(score>highscore) localStorage.setItem("highscore", Math.floor(score));
@@ -331,19 +388,17 @@ function gameOver(){
     const coinsFromScore = Math.floor(score/10);
     coins += coinsFromScore;
 
-    player.src = deathSprite;
-    
-    // Coins in localStorage speichern
-    let totalCoins = parseInt(localStorage.getItem("coins"))||0;
-    totalCoins += coins;
-    localStorage.setItem("coins", totalCoins);
+    // Play death animation, then show game over info
+    playDeathAnimation(() => {
+        // Coins in localStorage speichern
+        let totalCoins = parseInt(localStorage.getItem("coins"))||0;
+        totalCoins += coins;
+        localStorage.setItem("coins", totalCoins);
 
-    rewardText.textContent = `+${coins} Münzen gesammelt (insgesamt: ${totalCoins})`;
-    finalScoreText.textContent = `Score: ${Math.floor(score)}`;
-    highScoreText.textContent = `Highscore: ${Math.floor(Math.max(score, highscore))}`;
-
-    obstacles.forEach(h=>{if(gameArea.contains(h)) gameArea.removeChild(h);});
-    obstacles=[];
+        rewardText.textContent = `+${coins} Münzen gesammelt (insgesamt: ${totalCoins})`;
+        finalScoreText.textContent = `Score: ${Math.floor(score)}`;
+        highScoreText.textContent = `Highscore: ${Math.floor(Math.max(score, highscore))}`;
+    });
 }
 
 // Restart
@@ -360,8 +415,26 @@ function restartGame(){
     lastTime=performance.now();
     gameRunning=true;
 
+    // Remove win hurdle if present
+    const winHurdle = document.querySelector('.hurdle-win');
+    if(winHurdle && gameArea.contains(winHurdle)) {
+        gameArea.removeChild(winHurdle);
+    }
+
+    obstacles.forEach(h=>{if(gameArea.contains(h)) gameArea.removeChild(h);});
+    obstacles=[];
+
     currentHealth = maxHealth;
     updateHealthBar();
+
+    isDying = false;
+    currentRunIndex = 0;
+    player.src = runSprites[0];
+
+    // Restore background to normal (with skin support)
+    applySkinTheme(activeSkin);
+
+    updatePlayerSprite(performance.now());
 
     document.addEventListener("keydown", handleJump);
     gameArea.addEventListener("mousedown", handleMouseJump);

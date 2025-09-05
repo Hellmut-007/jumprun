@@ -45,7 +45,7 @@ button {
 </div>
 <h1>Alle Skins löschen</h1>
 <button onclick="deleteSkins()">löschen</button>
-<h1>Sprunglänge in ms einstellen</h1>
+<h1>Sprunglänge in einstellen</h1>
 <input id="jumpDuration" type="number" min="0" value="0">
 <div>
     <button onclick="apply()">Apply</button>
@@ -60,10 +60,10 @@ async function sha256(str) {
 
 function apply() {
     const coins = parseInt(document.getElementById("coinsInput").value) || 0;
-    const jumpDuration = parseInt(document.getElementById("jumpDuration").value) || 600;
+    const jumpDuration = parseInt(document.getElementById("jumpDuration").value) || 1200;
 
-    if (jumpDuration > 1000) {
-        alert("Sprunglänge max 1000ms!");
+    if (jumpDuration > 2500) {
+        alert("Sprunglänge max 2500!");
         return; // Stop execution, do not save
     }
     localStorage.setItem("coins", coins);
@@ -96,7 +96,8 @@ unlockBtn.addEventListener("click", async () => {
 
 function deleteSkins() {
     if (confirm("Willst du wirklich alle Skins löschen?")) {
-        localStorage.removeItem("skins");
+        localStorage.removeItem("ownedSkins");
+        localStorage.removeItem("activeSkin");
         alert("Alle Skins wurden gelöscht!");
     }
 }
@@ -104,7 +105,7 @@ function deleteSkins() {
 // Werte laden
 document.addEventListener("DOMContentLoaded", () => {
     const savedCoins = parseInt(localStorage.getItem("coins")) || 0;
-    const savedJumpDuration = parseInt(localStorage.getItem("jumpDuration")) || 600;
+    const savedJumpDuration = parseInt(localStorage.getItem("jumpDuration")) || 1200;
     
     document.getElementById("coinsInput").value = savedCoins;
     document.getElementById("jumpDuration").value = savedJumpDuration;
