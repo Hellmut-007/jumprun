@@ -209,16 +209,12 @@ player.style.bottom = groundHeight + "px";
 function handleJump(e){
     if(e.code === "Space") jump();
 }
-document.addEventListener("keydown", handleJump);
+function handleMouseJump() { jump(); }
+function handleTouchJump(e) { e.preventDefault(); jump(); }
 
-// Allow click/tap to jump
-gameArea.addEventListener("mousedown", function() {
-    jump();
-});
-gameArea.addEventListener("touchstart", function(e) {
-    e.preventDefault();
-    jump();
-}, { passive: false });
+document.addEventListener("keydown", handleJump);
+gameArea.addEventListener("mousedown", handleMouseJump);
+gameArea.addEventListener("touchstart", handleTouchJump, { passive: false });
 
 
 function updateHealthBar() {
@@ -227,6 +223,7 @@ function updateHealthBar() {
 }
 
 function jump(){
+    if(!gameRunning) return;
     if(isJumping) return;
     isJumping=true;
     const startTime = performance.now();
@@ -322,6 +319,8 @@ function gameLoop(time){
 // Game Over
 function gameOver(){
     document.removeEventListener("keydown", handleJump);
+    gameArea.removeEventListener("mousedown", handleMouseJump);
+    gameArea.removeEventListener("touchstart", handleTouchJump, { passive: false });
     gameRunning=false;
     gameOverScreen.style.display="block";
 
@@ -365,6 +364,8 @@ function restartGame(){
     updateHealthBar();
 
     document.addEventListener("keydown", handleJump);
+    gameArea.addEventListener("mousedown", handleMouseJump);
+    gameArea.addEventListener("touchstart", handleTouchJump, { passive: false });
     gameLoop(performance.now());
 }
 
